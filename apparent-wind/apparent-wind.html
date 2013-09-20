@@ -1,0 +1,154 @@
+<html>
+    <head>
+        <title>Apparent Wind Interactive Demo</title>
+        <script type="text/javascript" src="http://d3js.org/d3.v2.min.js"></script>
+        <script type="text/javascript">
+
+var deg2rad = function(d)
+{
+      return d*Math.PI/180;
+};
+
+var rad2deg = function(r)
+{
+      return r*180/Math.PI;
+};
+
+var apparentVelocity = function(Vt,Vb,alpha)
+{
+    return Math.sqrt(Math.pow(Vt,2)+Math.pow(Vb,2)+2*Vt*Vb*Math.cos(alpha));
+};
+
+var apparentAngle = function(Vt,Vb,alpha,Va)
+{
+    return Math.acos((Vt*Math.cos(alpha)+Vb)/Va);
+};
+
+var apparentWind = function(Vt,Vb,alpha)
+{
+   var Va = apparentVelocity(Vt,Vb,alpha);
+   var Beta = apparentAngle(Vt,Vb,alpha,Va);
+   return {Va:Va,Beta:Beta}; 
+};
+
+var pol2cart = function(r,theta)
+{
+    var x = r*Math.cos(theta);
+    var y = r*Math.sin(theta);
+    // Do a quick correction if we exactly cancel out and have no wind
+    // FIXME This probably would be better handled so other way
+    if (isNaN(x) || isNaN(y))
+    {
+        x = 0;
+        y = 0;
+    }
+    return {x:x,y:y};
+};
+
+var cart2pol = function(x,y)
+{
+    return {r:Math.sqrt(Math.pow(x,2)+Math.pow(y,2)),theta:Math.atan2(y,x)};
+};
+        </script>
+    </head>
+    <body>
+        <!-- Insert here -->
+    </body>
+    <script type="text/javascript">
+var w = 600,
+    h = 500,
+    speed =  d3.scale.linear().domain([0,60]).range([0,h/2]), 
+    ispeed = d3.scale.linear().domain([0,h/2]).range([0,60]), // Scale flipped so all calculations in pixel coords
+    Vt = 100, //FIXME Get the scales working properly...
+    Vb = 100,
+    Ta = deg2rad(90),
+    apparent = apparentWind(Vt,Vb,Ta),
+    Va = apparent.Va,
+    Beta = apparent.Beta,
+    vectors = [{name:'Boat Speed', vel:Vb, angle:0, col:'black'},
+               {name:'True Wind Speed', vel:Vt, angle:Ta, col:'blue'},
+               {name:'Apparent Wind Speed', vel:Va, angle:Beta, col:'red'}];
+
+var svg = d3.select("body").append('svg')
+    .style('background-color','rgba(0,255,0,.2)')
+    .attr('width',w)
+    .attr('height',h);
+
+svg.selectAll('line')
+        .data(vectors)
+    .enter().append('svg:line')
+        .attr('x1',w/2)
+        .attr('x2',function(d) { return pol2cart(d.vel,d.angle).x + w/2; })
+        .attr('y1',h/2)
+        .attr('y2',function(d) { return pol2cart(d.vel,d.angle).y + h/2; })
+        .classed('adjustable',true)
+        .style('stroke-width',4)
+        .style('stroke',function(d) { return d.col; });
+
+svg.selectAll('circle')
+        .data(vectors.slice(0,2))
+    .enter().append('svg:circle')
+        .attr('r',5)
+        .style('fill',function(d) { return d.col; })
+        .attr('cx',function(d) { return pol2cart(d.vel,d.angle).x + w/2; })
+        .attr('cy',function(d) { return pol2cart(d.vel,d.angle).y + h/2; })
+        .call(d3.behavior.drag()
+          .on("drag", function(d) {
+              var pol = cart2pol(d3.event.x-w/2,d3.event.y-h/2);
+              var idx = (d.name === 'Boat Speed') ? 0 : 1;
+              vectors[idx].vel = pol.r
+              vectors[idx].angle = pol.theta
+              update();
+          }));
+
+var update = function()
+{
+   // FIXME Tacking angle?
+   var boat = vectors[0].angle;
+   var wind = vectors[1].angle;
+   var alpha = 0;
+   var flip = false;
+   if (boat < wind)
+    {
+        alpha = wind-boat;
+    } else {
+        alpha = boat-wind;
+    }
+    if (alpha > Math.PI) {
+        flip = true;
+        alpha = 2*Math.PI-alpha;
+    }
+
+   var apparent = apparentWind(vectors[1].vel,vectors[0].vel,alpha); 
+   vectors[2].vel = apparent.Va;
+   if ((boat < wind && !flip) || (wind < boat && flip))
+    {
+       vectors[2].angle = apparent.Beta + boat;
+    } else {
+       vectors[2].angle = apparent.Beta + wind;
+    }
+    console.log({boat:vectors[0].angle,wind:vectors[1].angle,alpha:alpha,apparent:vectors[2].angle});
+
+   d3.selectAll('line').data(vectors);
+   d3.selectAll('circle').data(vectors.slice(0,2));
+
+   redraw();
+}
+
+var redraw = function()
+{
+   d3.selectAll('line') 
+        .attr('x1',w/2)
+        .attr('x2',function(d) { return pol2cart(d.vel,d.angle).x + w/2; })
+        .attr('y1',h/2)
+        .attr('y2',function(d) { return pol2cart(d.vel,d.angle).y + h/2; });
+    d3.selectAll('circle')
+        .attr('cx',function(d) { return pol2cart(d.vel,d.angle).x + w/2; })
+        .attr('cy',function(d) { return pol2cart(d.vel,d.angle).y + h/2; });
+};
+
+
+
+    </script>
+</html>
+
