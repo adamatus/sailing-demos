@@ -1,0 +1,23 @@
+<html>
+    <head>
+        <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+        <title>Tech Manual</title>
+    </head>
+    <body>
+        <h3>Parts of a tech</h3>
+        <!--<embed src="Tech.svg" type="image/svg+xml" /> -->
+        <div id="partsContainer">
+        </div>
+
+        <script>
+            xhr = new XMLHttpRequest();
+            xhr.open("GET","Tech.svg",false);
+            // Following line is just to be on the safe side;
+            // not needed if your server delivers SVG with correct MIME type
+            xhr.overrideMimeType("image/svg+xml");
+            xhr.send("");
+            document.getElementById("partsContainer")
+              .appendChild(xhr.responseXML.documentElement);
+          </script>
+    </body>
+</html>
