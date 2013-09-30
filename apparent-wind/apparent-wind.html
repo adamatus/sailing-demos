@@ -1,48 +1,17 @@
 <html>
     <head>
         <title>Apparent Wind Interactive Demo</title>
+        <style>
+text {
+    text-anchor: middle;
+}
+        </style>
         <script type="text/javascript" src="http://d3js.org/d3.v2.min.js"></script>
         <script type="text/javascript">
-
-var deg2rad = function(d)
-{
-      return d*Math.PI/180;
-};
 
 var rad2deg = function(r)
 {
       return r*180/Math.PI;
-};
-
-var apparentVelocity = function(Vt,Vb,alpha)
-{
-    return Math.sqrt(Math.pow(Vt,2)+Math.pow(Vb,2)+2*Vt*Vb*Math.cos(alpha));
-};
-
-var apparentAngle = function(Vt,Vb,alpha,Va)
-{
-    return Math.acos((Vt*Math.cos(alpha)+Vb)/Va);
-};
-
-var apparentWind = function(Vt,Vb,alpha)
-{
-   var Va = apparentVelocity(Vt,Vb,alpha);
-   var Beta = apparentAngle(Vt,Vb,alpha,Va);
-   return {Va:Va,Beta:Beta}; 
-};
-
-var pol2cart = function(r,theta)
-{
-    var x = r*Math.cos(theta);
-    var y = r*Math.sin(theta);
-    // Do a quick correction if we exactly cancel out and have no wind
-    // FIXME This probably would be better handled so other way
-    if (isNaN(x) || isNaN(y))
-    {
-        x = 0;
-        y = 0;
-    }
-    return {x:x,y:y};
 };
 
 var cart2pol = function(x,y)
@@ -55,98 +24,168 @@ var cart2pol = function(x,y)
         <!-- Insert here -->
     </body>
     <script type="text/javascript">
-var w = 600,
+var w = 500,
     h = 500,
-    speed =  d3.scale.linear().domain([0,60]).range([0,h/2]), 
-    ispeed = d3.scale.linear().domain([0,h/2]).range([0,60]), // Scale flipped so all calculations in pixel coords
-    Vt = 100, //FIXME Get the scales working properly...
-    Vb = 100,
-    Ta = deg2rad(90),
-    apparent = apparentWind(Vt,Vb,Ta),
-    Va = apparent.Va,
-    Beta = apparent.Beta,
-    vectors = [{name:'Boat Speed', vel:Vb, angle:0, col:'black'},
-               {name:'True Wind Speed', vel:Vt, angle:Ta, col:'blue'},
-               {name:'Apparent Wind Speed', vel:Va, angle:Beta, col:'red'}];
+    labelX = d3.scale.linear().domain([0,4]).range([0,w]),
+    x = d3.scale.linear().domain([-50,50]).range([0,w]),
+    y = d3.scale.linear().domain([-50,50]).range([h,0]),
+    arc = d3.svg.arc().innerRadius(x(5)-x(0)-1).outerRadius(x(5)-x(0)+1).startAngle(Math.PI/4).endAngle(Math.PI/2),
+    vectors = [{name:'Wind', vel:10, angle:0, col:'blue',x:0,y:10},
+               {name:'Board', vel:10, angle:90, col:'black',x:10,y:0},
+               {name:'Apparent', vel:14.14, angle:45,col:'red',x:10,y:10}]; 
 
 var svg = d3.select("body").append('svg')
     .style('background-color','rgba(0,255,0,.2)')
     .attr('width',w)
     .attr('height',h);
 
-svg.selectAll('line')
+var defs = svg.append('defs');
+
+var marks = defs.selectAll('marker')
+        .data(vectors)
+    .enter().append('marker')
+        .attr('id',function(d,i) { return 'arrowhead'+i; })
+        .attr('viewBox','0 0 30 20')
+        .attr('refX',0)
+        .attr('refY',10)
+        .attr('markerUnits','strokeWidth')
+        .attr('markerWidth',6)
+        .attr('markerHeight',5)
+        .attr('orient','auto')
+        .style('fill',function(d) { return d.col; })
+        .style('stroke',function(d) { return d.col; });
+marks.append('svg:path')
+    .attr('d','M 30 0 L 0 10 L 30 20 z');
+
+//svg.append('svg:path')
+//    .attr('fill','black')
+//    .attr('d',arc)
+//    .attr('transform','translate('+w/2+','+h/2+')');
+
+var board = svg.append('svg:path')
+    .attr('d',"m 11.6,0 a 11.6117,37.7666 0 1 1 -22.22341,0 11.6117,37.7666 0 1 1 22.22341,0 z")
+    .attr('id','board')
+    .style('stroke-width',2)
+    .style('fill','none')
+    .style('stroke','black')
+    .attr('transform','translate('+w/2+','+h/2+') rotate('+vectors[1].angle+')');
+
+var output = svg.selectAll('.details')
+        .data(vectors)
+    .enter().append('svg:g')
+        .classed('details',true);
+
+// Add detail labels
+d3.selectAll('.details').append('svg:text')
+    .attr('x',function(d,i) { return labelX(i+1)+labelX(.5); })
+    .attr('y',400)
+    .classed('details-cols',true)
+    .text(function(d) { return d.name; });
+
+// Add Speeds
+d3.selectAll('.details').append('svg:text')
+    .attr('x',function(d,i) { return labelX(i+1)+labelX(.5); })
+    .attr('y',430)
+    .classed('details-velocity',true)
+    .text(function(d) { return d.vel; });
+
+// Add Angles
+d3.selectAll('.details').filter(function(d,i) { return i>0; })
+    .append('svg:text')
+    .attr('x',function(d,i) { return labelX(i+2)+labelX(.5); })
+    .attr('y',460)
+    .classed('details-angle',true)
+    .text(function(d) { return d.angle; });
+
+svg.selectAll('.details-rows')
+        .data(['','Velocity','Angle'])
+    .enter().append('svg:text')
+        .attr('x',labelX(0)+labelX(.5))
+        .attr('y',function(d,i) { return 400 + 30*i; })
+        .classed('details-rows',true)
+        .text(function(d) { return d; });
+
+// Add velocity vector lines
+svg.selectAll('.vectors')
         .data(vectors)
     .enter().append('svg:line')
-        .attr('x1',w/2)
-        .attr('x2',function(d) { return pol2cart(d.vel,d.angle).x + w/2; })
-        .attr('y1',h/2)
-        .attr('y2',function(d) { return pol2cart(d.vel,d.angle).y + h/2; })
+        .attr('x1',x(0))
+        .attr('x2',function(d) { return x(d.x); })
+        .attr('y1',y(0))
+        .attr('y2',function(d) { return y(d.y); })
         .classed('adjustable',true)
-        .style('stroke-width',4)
-        .style('stroke',function(d) { return d.col; });
+        .classed('vectors',true)
+        .style('stroke-width',2)
+        .style('fill',function(d) { return d.col; })
+        .style('stroke',function(d) { return d.col; })
+        .attr('marker-start',function(d,i) { return 'url(#arrowhead'+i+')'; });
 
+// Add line mover circles
 svg.selectAll('circle')
-        .data(vectors.slice(0,2))
+       .data(vectors.slice(0,2))
     .enter().append('svg:circle')
         .attr('r',5)
         .style('fill',function(d) { return d.col; })
-        .attr('cx',function(d) { return pol2cart(d.vel,d.angle).x + w/2; })
-        .attr('cy',function(d) { return pol2cart(d.vel,d.angle).y + h/2; })
+        .attr('cx',function(d) { return x(d.x) })
+        .attr('cy',function(d) { return y(d.y) })
         .call(d3.behavior.drag()
           .on("drag", function(d) {
-              var pol = cart2pol(d3.event.x-w/2,d3.event.y-h/2);
-              var idx = (d.name === 'Boat Speed') ? 0 : 1;
-              vectors[idx].vel = pol.r
-              vectors[idx].angle = pol.theta
+              var idx = (d.name === 'Wind') ? 0 : 1;
+              vectors[idx].x = x.invert(d3.event.x);
+              vectors[idx].y = y.invert(d3.event.y);
               update();
           }));
 
+// Recompute apparent and relative angles
 var update = function()
 {
-   // FIXME Tacking angle?
-   var boat = vectors[0].angle;
-   var wind = vectors[1].angle;
-   var alpha = 0;
-   var flip = false;
-   if (boat < wind)
-    {
-        alpha = wind-boat;
-    } else {
-        alpha = boat-wind;
-    }
-    if (alpha > Math.PI) {
-        flip = true;
-        alpha = 2*Math.PI-alpha;
-    }
+   // Vector addition of wind and board speeds
+   vectors[2].x = vectors[0].x + vectors[1].x;
+   vectors[2].y = vectors[0].y + vectors[1].y;
 
-   var apparent = apparentWind(vectors[1].vel,vectors[0].vel,alpha); 
-   vectors[2].vel = apparent.Va;
-   if ((boat < wind && !flip) || (wind < boat && flip))
-    {
-       vectors[2].angle = apparent.Beta + boat;
-    } else {
-       vectors[2].angle = apparent.Beta + wind;
-    }
-    console.log({boat:vectors[0].angle,wind:vectors[1].angle,alpha:alpha,apparent:vectors[2].angle});
+   // Compute polar representations (speed+angle)
+   for (var i=0; i < vectors.length; i++)
+   {
+       var tmp = cart2pol(vectors[i].x,vectors[i].y);
+       vectors[i].vel = tmp.r;
+       vectors[i].angle = tmp.theta;
+   }
 
-   d3.selectAll('line').data(vectors);
+   // Compute boat to true/apparent wind angles
+   var tmpDiff = Math.abs(vectors[1].angle-vectors[2].angle);
+   vectors[2].angle = d3.min([2*Math.PI-tmpDiff,tmpDiff]);
+   var tmpDiff = Math.abs(vectors[0].angle-vectors[1].angle);
+   vectors[1].angle = d3.min([2*Math.PI-tmpDiff,tmpDiff]);
+
+   d3.selectAll('.vectors').data(vectors);
+   d3.selectAll('details').data(vectors);
    d3.selectAll('circle').data(vectors.slice(0,2));
 
    redraw();
-}
+};
 
 var redraw = function()
 {
-   d3.selectAll('line') 
-        .attr('x1',w/2)
-        .attr('x2',function(d) { return pol2cart(d.vel,d.angle).x + w/2; })
-        .attr('y1',h/2)
-        .attr('y2',function(d) { return pol2cart(d.vel,d.angle).y + h/2; });
+   d3.selectAll('.vectors') 
+        .attr('x1',x(0))
+        .attr('x2',function(d) { return x(d.x); })
+        .attr('y1',y(0))
+        .attr('y2',function(d) { return y(d.y); });
     d3.selectAll('circle')
-        .attr('cx',function(d) { return pol2cart(d.vel,d.angle).x + w/2; })
-        .attr('cy',function(d) { return pol2cart(d.vel,d.angle).y + h/2; });
+        .attr('cx',function(d) { return x(d.x) })
+        .attr('cy',function(d) { return y(d.y) });
+    d3.selectAll('.details-velocity')
+        .text(function(d) { return Math.round(d.vel*100)/100; });
+    d3.selectAll('.details-angle')
+        .text(function(d) { return Math.round(rad2deg(d.angle)*100)/100; });
+
+    var tmpAngle = cart2pol(vectors[1].x,vectors[1].y);
+    console.log(tmpAngle);
+    d3.selectAll('#board')
+        .attr('transform','translate('+w/2+','+h/2+') rotate('+(360-rad2deg(tmpAngle.theta+Math.PI/2))+')');
 };
 
+update();
 
 
     </script>
